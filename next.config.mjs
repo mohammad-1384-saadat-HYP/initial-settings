@@ -1,6 +1,21 @@
 /** @type {import('next').NextConfig} */
+const isDev = process.env.NODE_ENV === "development";
+
 const nextConfig = {
-  /* config options here */
+  images: {
+    remotePatterns: isDev
+      ? [
+          {
+            protocol: "https",
+            hostname: "**",
+          },
+          {
+            protocol: "http",
+            hostname: "**",
+          },
+        ]
+      : [],
+  },
   turbopack: {
     rules: {
       "*.css": {
