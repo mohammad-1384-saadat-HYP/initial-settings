@@ -26,8 +26,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 Before making **any code or project-file change**, the AI MUST follow this order:
 
-1. Read `AGENTS.md` completely.
-2. Read `AGENT_CHANGELOG.md` completely, with particular attention to the latest entries, so it understands changes previously made by other AI agents.
+1. Read `AGENTS.md` (required only once at the beginning of a conversation/session or when switching to a completely new task context; do not re-read repeatedly before every follow-up step or minor file edit within the same task).
+2. Read `AGENT_CHANGELOG.md` (targeted reading: focus primarily on the most recent entries to understand current context, rather than reading the entire historical log unless investigating a specific past change; required once per session/task context).
 3. Inspect the relevant project structure and the files directly related to the requested task.
 4. Identify the technologies, conventions, and implementation patterns already used in the relevant area.
 5. Determine which files are in scope for the requested change.
@@ -37,7 +37,7 @@ Before making **any code or project-file change**, the AI MUST follow this order
 9. After completing the change, verify the written code for syntax correctness and obvious implementation mistakes.
 10. Update `AGENT_CHANGELOG.md` with the changes made by the current AI.
 
-The AI MUST NOT skip reading either `AGENTS.md` or `AGENT_CHANGELOG.md`, even for a small change.
+The AI MUST NOT skip reading `AGENTS.md` and recent entries of `AGENT_CHANGELOG.md` at session start, but it MUST NOT re-read them redundantly on minor follow-up steps.
 
 ---
 
@@ -229,6 +229,13 @@ Before considering a task complete, the AI MUST:
 - Check that existing behavior is not unnecessarily changed.
 - Check that the implementation does not introduce obvious duplication or unnecessary complexity.
 
+### 9.1 Pragmatic Error Handling and Respecting Intentional Code
+
+- **Distinguish Genuine Bugs from Opinionated Warnings:** The AI MUST distinguish between genuine runtime/logic bugs (e.g., broken imports, undefined variables, fatal type mismatches that break execution) and opinionated linter/type warnings or intentional patterns.
+- **Respect Intentional Code:** If the user's code or requested pattern intentionally bypasses a strict type or linter preference (or triggers a pedantic warning that works fine in practice and matches the user's intent), the AI **MUST NOT** rewrite, over-engineer, or alter working logic just to appease the linter or type-checker.
+- **Scope of Fixes:** Fix genuine bugs caused by the AI's own changes, and leave pre-existing warnings in untouched code alone.
+- **Preserve User Logic:** If a strict lint or type rule conflicts with the user's intended implementation, keep the user's logic intact (or briefly note it in the final report without modifying the working code).
+
 The AI MUST NOT knowingly leave obviously incorrect code merely because it is syntactically valid.
 
 If the AI cannot confidently verify an important behavior without running the application or having information it does not have, it must clearly tell the user what remains unverified.
@@ -241,14 +248,16 @@ The AI should not take ownership of the user's normal development workflow unles
 
 ### 10.1 Command Execution Rules
 
-- The AI MUST NOT start development servers, run build pipelines, or execute application start commands (e.g., `dev`, `build`, `start`, or framework/language-specific equivalents) on its own. The user will handle running the application and managing the development server.
-- The AI's required verification is primarily:
+- **Forbidden Commands:** The AI MUST NOT start development servers, run build pipelines, or execute application start commands (e.g., `dev`, `build`, `start`, or framework/language-specific equivalents) on its own. The user will handle running the application and managing the development server.
+- **Allowed Read-Only Checks:** While starting dev servers or running full builds remains strictly forbidden, the AI **is permitted and encouraged** to use existing project diagnostic tools (such as TypeScript type-checking e.g. `tsc --noEmit`, ESLint, or IDE language server diagnostics) if available in the project, strictly in **read-only mode** (never use `--fix` or auto-formatters automatically) and scoped to the modified files whenever possible.
+- **Verification Focus:** The AI's required verification is primarily:
   - static inspection,
   - syntax correctness,
+  - read-only diagnostic checks for genuine errors,
   - consistency with the existing code,
   - and checking for obvious implementation errors.
 
-Do not make unnecessary changes just to accommodate a local development environment.
+Do not make unnecessary changes just to accommodate a local development environment, and do not rewrite or alter working code merely to appease non-fatal linter or type warnings.
 
 If the user explicitly asks the AI to run a particular verification, linter, or test command, follow that request if the environment allows it.
 
@@ -376,17 +385,22 @@ If these questions cannot be answered confidently, ask the user before editing.
 
 After making changes, the AI MUST update `AGENT_CHANGELOG.md`.
 
-Each entry should include, when applicable:
+### 17.1 Compact and Token-Efficient Entries
 
-- Date
-- Task / Request
-- Files Changed
-- What Changed
-- Why It Changed
-- Important Decisions
-- Rule Conflicts / Explicit Exceptions
-- Verification Performed
-- Known Issues / Unverified Items
+The AI MUST keep `AGENT_CHANGELOG.md` entries **ultra-concise and high-signal** (compact bullet points) to optimize context and token efficiency:
+
+- **High-Signal Fields:** Include relevant fields when applicable:
+  - Date
+  - Task / Request
+  - Files Changed
+  - What Changed
+  - Why It Changed
+  - Important Decisions
+  - Rule Conflicts / Explicit Exceptions
+  - Verification Performed
+  - Known Issues / Unverified Items
+- **Omit Inapplicable Fields:** Omit empty or inapplicable fields entirely (e.g., if there were no rule conflicts, important decisions, or unverified items, do not include those headers).
+- **Group Follow-up Tweaks:** Trivial follow-up tweaks within the same session can be grouped or appended concisely rather than generating bloated multi-section reports every time.
 
 The changelog exists so a future AI agent can understand what previous agents did before making new changes.
 
@@ -404,8 +418,8 @@ The changelog is historical context, not a replacement for the current code.
 
 The AI MUST:
 
-- Read it before starting work.
-- Use it to understand recent changes and decisions.
+- Read it once at the start of a conversation/session (focusing primarily on the most recent entries rather than processing the entire historical log unless investigating a specific past change).
+- Use recent entries to understand recent changes, conventions, and decisions.
 - Verify historical information against the current code when necessary.
 - Never assume that a previous AI's implementation is still present or correct without checking the relevant files.
 
