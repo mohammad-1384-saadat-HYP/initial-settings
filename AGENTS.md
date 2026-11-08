@@ -263,6 +263,12 @@ If the user explicitly asks the AI to run a particular verification, linter, or 
 
 The AI MUST report what was actually verified and MUST NOT claim to have performed a test or verification that it did not perform.
 
+### 10.2 Git and Version Control Rules
+
+- **Strict No-Git Policy by Default:** The AI MUST NOT interact with Git or execute any `git` commands (including `git add`, `git commit`, `git push`, `git pull`, `git fetch`, `git checkout`, `git branch`, `git merge`, `git rebase`, `git reset`, `git stash`, `git status`, `git diff`, `git log`, or modifying `.git` / `.gitignore` configurations) unless the user **explicitly** instructs the AI to perform a specific Git action in the current prompt.
+- **Explicit Authorization Required per Action:** Even after completing a coding task, fixing a bug, or updating `AGENT_CHANGELOG.md`, the AI MUST leave all changes uncommitted in the working tree. It MUST NOT stage, commit, or push changes on its own initiative.
+- **Scoped Execution:** If the user explicitly asks for a specific Git operation (e.g., "commit these changes"), the AI may perform **only** that exact requested operation (e.g., staging and committing) and MUST NOT chain unrequested operations (such as running `git push` when only asked to commit).
+
 ---
 
 ## 11. Component, Module, and Abstraction Creation
