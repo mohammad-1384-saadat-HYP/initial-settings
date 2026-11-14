@@ -22,22 +22,149 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ---
 
-## 2. Mandatory Startup Procedure
+## 2. Mandatory Startup Procedure & Smart Session Caching
+
+To maximize speed and minimize token consumption without ever working on stale data, the AI MUST use **Smart Session Caching with Change-Triggered Refresh (Cache Invalidation)**.
 
 Before making **any code or project-file change**, the AI MUST follow this order:
 
-1. Read `AGENTS.md` (required only once at the beginning of a conversation/session or when switching to a completely new task context; do not re-read repeatedly before every follow-up step or minor file edit within the same task).
-2. Read `AGENT_CHANGELOG.md` (targeted reading: focus primarily on the most recent entries to understand current context, rather than reading the entire historical log unless investigating a specific past change; required once per session/task context).
-3. Inspect the relevant project structure and the files directly related to the requested task.
-4. Identify the technologies, conventions, and implementation patterns already used in the relevant area.
-5. Determine which files are in scope for the requested change.
+1. **Read `AGENTS.md` (Session-Cached with Change Detection):** Read once at the beginning of a conversation/session and cache in memory. Do not re-read on follow-up turns UNLESS the file has been modified during the session or the user indicates a rule update—in which case, read only the updated/changed sections to refresh session memory.
+2. **Read `AGENT_CHANGELOG.md` (Targeted & Session-Cached):** Read only the most recent entries once at session start. Only re-read if external edits occurred during the session.
+3. **Inspect Target Scope & Smart Cache Invalidation:** Inspect the relevant project structure, configuration files (e.g., `package.json`, `tsconfig.json`, global styles), and conventions once when entering an area of the codebase, and retain them in session memory.
+   - **Change-Triggered Refresh (Delta Reading):** If _any_ cached file, config, skill, or target source file is modified (by the user, an external tool, or a previous step), or if a behavior mismatch suggests a file changed, the AI MUST immediately re-read **only the modified file or the changed lines/sections** to update its session cache before proceeding.
+4. **Conditional UI/UX Skill & Token Caching (UI Tasks Only):** If—and ONLY if—the task involves UI/UX, styling, or frontend components, load the relevant UI/UX skills and design tokens once per session (as detailed in Section 6.2). If any skill, theme file, or UI primitive changes mid-session, refresh only that specific updated resource.
+5. Determine which specific files are in scope for the requested change.
 6. Check whether the requested change conflicts with any rule in this file.
 7. If anything is unclear, ambiguous, or insufficiently specified, ask the user before making the change.
 8. Only after the above steps, implement the requested change.
 9. After completing the change, verify the written code for syntax correctness and obvious implementation mistakes.
 10. Update `AGENT_CHANGELOG.md` with the changes made by the current AI.
 
-The AI MUST NOT skip reading `AGENTS.md` and recent entries of `AGENT_CHANGELOG.md` at session start, but it MUST NOT re-read them redundantly on minor follow-up steps.
+**Smart Token-Efficiency Rule:**
+
+- **Unchanged Files = Do Not Re-Read:** Never redundantly re-read files, configs, or skills that have already been loaded in the current session and remain untouched.
+- **Changed Files = Targeted Refresh:** Whenever a file, skill, or configuration changes (even by 0.1%), selectively read the updated file/section so your active context is 100% accurate and up to date.
+
+---
+
+## 3. Ownership and File Modification Rules
+
+### 3.1 Files within the user's scope
+
+The AI may modify files that:
+
+- are explicitly included in the user's requested scope,
+- are owned or maintained by the user,
+- or are directly required to implement the requested task.
+
+The AI MUST determine this from the project structure, existing documentation, and user instructions rather than making assumptions.
+
+### 3.2 Files owned or maintained by another person
+
+The AI MUST NOT modify files that are known to be owned or maintained by another person unless the user explicitly authorizes the change.
+
+If the AI cannot reliably determine whether a file belongs to the user's scope or another person's scope, it MUST ask the user before modifying it.
+
+### 3.3 Explicit exception
+
+If the user explicitly tells the AI to modify a file outside the normal ownership/scope:
+
+- The AI may modify that file.
+- It may make only the change necessary for that explicit request.
+- It MUST NOT use the permission as an opportunity to refactor, clean up, reorganize, or modify unrelated parts of that file.
+- The exception applies only to the requested change.
+
+---
+
+## 4. Scope Protection
+
+The AI MUST keep every change strictly within the scope of the user's request.
+
+The AI MUST NOT:
+
+- Modify files outside the required scope.
+- Modify unrelated code.
+- Refactor existing code without a concrete need for the requested task.
+- Change the project's architecture unnecessarily.
+- Change the project's folder/file structure without explicit permission.
+- Modify another area of the project merely because it could be improved.
+- Change configuration files without explicit permission unless the requested task necessarily requires it and the change is within scope.
+- Change build, deployment, environment, or project configuration merely to make a task easier.
+- Rewrite existing code simply because the AI prefers another coding style.
+- Make broad cleanup changes while working on an unrelated feature.
+- Modify backend, frontend, or other non-target areas when they are outside the requested scope.
+
+If a requested task appears to require a change outside the normal scope, the AI must explain why that change is needed and ask the user before doing it.
+
+---
+
+## 5. Package and Dependency Rules
+
+The AI MUST NOT install, add, remove, upgrade, downgrade, or replace packages/dependencies on its own.
+
+If a package or dependency is genuinely required:
+
+1. Tell the user which package is needed.
+2. Explain briefly why it is needed.
+3. Wait for the user to decide whether to install it.
+4. Do not install it or modify dependency/manifestمنظورتان را کاملاً متوجه شدم. اگر شما در وسط یک چت (Session)، خودتان به صورت دستی فایلی مثل `globals.css`، `package.json`، `AGENTS.md` یا یکی از اسکیل‌ها را تغییر بدهید (یا پکیج و توکن جدیدی اضافه کنید)، کش ذهنی ایجنت قدیمی (Stale) می‌شود و اگر کورکورانه به حافظه قبلی‌اش تکیه کند، کد اشتباه می‌زند.
+
+برای حل این مشکل بدون اینکه دوباره مصرف توکن بالا برود، مکانیزم **«ابطل کش هوشمند و بازخوانی تفاضلی (Smart Cache Invalidation & Delta Re-reading)»** را در بخش‌های `2` و `6.2` و `18` جایگزین قانون قبلی کردم.
+
+بر اساس این قانون جدید:
+
+1. **حفظ کش تا زمان عدم تغییر:** تا وقتی فایلی تغییر نکرده، ایجنت از همان حافظه چت استفاده می‌کند و توکنی نمی‌سوزاند.
+2. **تشخیص تغییر (Cache Invalidation):** به محض اینکه ایجنت متوجه شود فایلی تغییر کرده (مثلاً شما در پرامپت بگویید، یا IDE تغییر فایل را گزارش دهد، یا هنگام ادیت متوجه تفاوت خطوط شود)، کشِ آن فایل خاص باطل می‌شود.
+3. **بازخوانیِ فقط بخش تغییریافته (Delta/Targeted Re-read):** به جای اینکه دوباره کل فایل‌ها را از اول تا آخر بخواند، **فقط همان فایلِ تغییریافته و ترجیحاً همان بخش یا خطوط جدید** را می‌خواند و حافظه کش خود را در طول همان چت آپدیت می‌کند.
+
+نسخه نهایی و اصلاح‌شده فایل `AGENTS.md`:
+
+```markdown
+# AGENTS.md
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
+
+---
+
+## 1. Project Overview
+
+- This file contains the rules and working guidelines for AI agents working in this project.
+- The project may contain multiple areas, features, technologies, or parts owned and maintained by different people.
+- The AI MUST determine the relevant project structure, conventions, technologies, and ownership before making changes.
+- The AI's responsibility is to make only the changes allowed by this document and by the user's instructions.
+- The AI MUST NOT assume a specific framework, library, architecture, folder structure, API pattern, or development workflow unless it is confirmed by the existing project.
+
+---
+
+## 2. Mandatory Startup Procedure & Smart Session Caching
+
+To maximize speed and minimize token consumption while maintaining 100% accuracy, the AI MUST use **Smart Session-Level Caching with Delta Updates** (retaining read files in active conversation memory and only re-reading modified files or sections when changes occur).
+
+Before making **any code or project-file change**, the AI MUST follow this order:
+
+1. **Read `AGENTS.md` (Cached with Change Detection):** Read once at the beginning of a conversation/session and cache in memory. Do not re-read on follow-up turns UNLESS the file has been modified during the session; if modified, read the updated sections to refresh the session cache.
+2. **Read `AGENT_CHANGELOG.md` (Targeted & Incrementally Updated):** Read the most recent entries once at session start. Since the AI updates this file itself, it already knows its state during the session; only re-read the tail end if an external change occurred.
+3. **Inspect Target Scope & Maintain Live Context Cache:** Inspect the relevant project structure, configuration files (e.g., `package.json`, `tsconfig.json`, global styles), and conventions once when first entering an area of the codebase. Reuse this cached context across turns, **EXCEPT** when any of these files are modified (by the user, a tool, or a package change); if a change is detected, immediately read the modified file/section to update the in-memory cache.
+4. **Conditional UI/UX Skill & Token Caching (UI Tasks Only):** If the task involves UI/UX, styling, or frontend components, load the relevant UI/UX skills and design tokens once per session (as detailed in Section 6.2) and keep them cached. If any skill file, theme token, or global style file changes mid-session, selectively read the updated portion to synchronize the cache.
+5. Determine which specific files are in scope for the requested change.
+6. Check whether the requested change conflicts with any rule in this file.
+7. If anything is unclear, ambiguous, or insufficiently specified, ask the user before making the change.
+8. Only after the above steps, implement the requested change.
+9. After completing the change, verify the written code for syntax correctness and obvious implementation mistakes.
+10. Update `AGENT_CHANGELOG.md` with the changes made by the current AI.
+
+**Smart Cache Invalidation Rule (Token-Optimal Accuracy):**
+
+- **Unchanged Files = Zero Re-reads:** Never redundantly re-read `AGENTS.md`, `AGENT_CHANGELOG.md`, configs, global styles, or skill files if they have not changed since they were loaded in the current conversation.
+- **Modified Files = Targeted Delta Re-read:** If even a minor change occurs in any cached file, skill, or configuration (detected via IDE file-change events, tool mismatches, or user notification), the AI MUST NOT rely on stale memory. It must perform a targeted read of the modified file or section to update its session cache before proceeding.
 
 ---
 
@@ -146,6 +273,29 @@ The user's primary responsive-design preferences and guidelines for review are a
 - **Breakpoint Discrimination:** Pay careful attention to the distinctions between `sm`, `md`, and `lg`, particularly when deciding when a multi-column or desktop grid/dock should replace a mobile stack.
 - **Full Viewport Usability:** These preferences do not permit ignoring intermediate viewport sizes. Layouts must remain completely usable, readable, and visually balanced at all intermediate widths between and beyond the primary checkpoints without clipping, overlap, or horizontal overflow.
 
+### 6.2 Mandatory UI/UX Execution & Smart-Cached Tooling Protocol
+
+Whenever a task involves **UI design, UX improvements, styling, layouts, visual refactoring, or frontend components**, the AI is **STRICTLY REQUIRED** to utilize its available UI/UX skills, tools, and project design tokens to deliver a polished, production-grade result—while combining **Session-Level Caching** with **Delta Change Detection**.
+
+1. **On-Demand & Delta-Synced Skill Activation:**
+   - **Skip on Non-UI Tasks:** Do NOT load UI/UX skills or styling references when working on pure backend, API, state logic, or configuration tasks.
+   - **Load Once & Cache:** On the **first** UI/UX task of a conversation, the AI **MUST** activate and read the available UI/UX skills and workflows in the environment (e.g., `.agent/skills/`, `ui-ux-pro-max`, or other specialized frontend skills).
+   - **Targeted Resource Queries:** When using UI/UX skills that contain reference files, scripts, or guidelines, query or read **only the specific section/category relevant to the current task** (e.g., dashboard layout, form validation, color palette, or typography) rather than dumping entire reference databases into context.
+   - **Smart Cache Sync:** Reuse the cached skill guidelines across subsequent UI tasks in the same session without re-reading. However, if a new UI task requires a different category from a skill's reference database, or if a skill/rule file was modified during the session, read **only the newly required or modified section** to update the session cache.
+
+2. **Live Design-System & Primitive Discovery:**
+   - On the first UI task in a session, inspect the project's global styling setup (e.g., `globals.css`, Tailwind configuration, theme variables, fonts) and available UI primitives (buttons, inputs, modals, cards, skeletons, icons), caching them in session memory.
+   - If the user or the AI modifies any global style file, theme token, or shared UI primitive during the conversation, the AI MUST read the updated section of that file so its cached design tokens stay 100% accurate.
+
+3. **Comprehensive UX & Visual Polish (Zero Extra Token Overhead):**
+   - Apply high-standard UX practices directly during code generation:
+     - **Interactive & Data States:** Include proper `hover`, `focus-visible`, `active`, `disabled`, loading/skeleton, and empty states where applicable.
+     - **RTL/LTR & Localization:** Ensure flawless layout flow for Persian (RTL) and English (LTR), proper spacing, and clean typography.
+     - **Visual Hierarchy:** Maintain consistent spacing, border radii, contrast, and alignment across `sm`, `md`, `lg`, and intermediate viewports.
+
+4. **Targeted Read-Only Verification:**
+   - Verify modified UI files using lightweight, read-only diagnostics scoped strictly to the changed files.
+
 ---
 
 ## 7. API and Data Access Rules
@@ -203,6 +353,7 @@ Do not silently invent requirements.
 ### 8.1 Mandatory Ambiguity-Handling Process
 
 For any genuine ambiguity, missing critical information, conflicting requirements, or significant decision requiring user input:
+
 - The AI MUST use Antigravity's native interactive question/approval interface (`ask_question`).
 - Present clear selectable options in Persian, plus an option equivalent to "Other / I'll provide my own instructions" that allows custom text.
 - Do not provide a Skip option.
@@ -424,7 +575,7 @@ The changelog is historical context, not a replacement for the current code.
 
 The AI MUST:
 
-- Read it once at the start of a conversation/session (focusing primarily on the most recent entries rather than processing the entire historical log unless investigating a specific past change).
+- Read it once at the start of a conversation/session (focusing primarily on the most recent entries rather than processing the entire historical log unless investigating a specific past change) and only re-read the modified tail if external changes occur mid-session.
 - Use recent entries to understand recent changes, conventions, and decisions.
 - Verify historical information against the current code when necessary.
 - Never assume that a previous AI's implementation is still present or correct without checking the relevant files.
@@ -458,7 +609,7 @@ After completing a task, the AI should clearly report:
 
 1. What was changed.
 2. Which files were changed.
-3. Any important implementation decision.
+3. Any important implementation decision (and briefly note which UI/UX skills or design tokens were applied, if it was a UI task).
 4. What was verified.
 5. Anything that could not be verified.
 6. Any package/dependency that would be needed but was intentionally not installed.
@@ -472,6 +623,7 @@ Keep the report concise and factual.
 
 When uncertain, prefer:
 
-**ask > inspect > identify required and optional changes > get approval for optional changes > implement > verify > document**
+**ask > inspect (cache in session & sync deltas on change) > identify required and optional changes > get approval for optional changes > implement > verify > document**
 
 Do not guess, do not overreach, and do not modify unrelated parts of the project.
+```
