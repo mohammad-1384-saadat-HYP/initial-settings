@@ -39,3 +39,37 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# additional logs & verification
+*.log
+dev-*.log
+.next-verification/
+
+# editor & ide files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# os files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# environment exceptions
+!.env.example
+
+# database & docker volumes
+postgres_data/
+
+# backend / python artifacts (if backend service is added)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
